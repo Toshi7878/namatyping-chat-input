@@ -1,10 +1,4 @@
-import {
-  type FormEvent,
-  type KeyboardEvent,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 import type {
   ChatResponse,
   TargetInfo,
@@ -12,12 +6,16 @@ import type {
 } from "../shared/messages";
 
 const tabId = Number(new URLSearchParams(location.search).get("tabId"));
+const SEND_WITH_ENTER_KEY = "sendWithEnter";
+const FONT_SIZE_KEY = "fontSize";
 
 export default function App() {
   const [target, setTarget] = useState<TargetInfo | null>(null);
   const [text, setText] = useState("");
   const [status, setStatus] = useState("接続中…");
   const [sending, setSending] = useState(false);
+  const [sendWithEnter, setSendWithEnter] = useState(false);
+  const [fontSize, setFontSize] = useState(18);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -34,10 +32,33 @@ export default function App() {
           return;
         }
         setTarget(response.target);
-        setStatus("送信できます");
+        setStatus("");
         inputRef.current?.focus();
       })
       .catch((error: unknown) => setStatus(errorMessage(error)));
+  }, []);
+
+  useEffect(() => {
+    chrome.storage.local
+      .get([SEND_WITH_ENTER_KEY, FONT_SIZE_KEY])
+      .then((stored) => {
+        setSendWithEnter(stored[SEND_WITH_ENTER_KEY] === true);
+        const storedFontSize = stored[FONT_SIZE_KEY];
+        if (typeof storedFontSize === "number") setFontSize(storedFontSize);
+      });
+
+    const onChanged = (
+      changes: Record<string, chrome.storage.StorageChange>,
+    ) => {
+      const change = changes[SEND_WITH_ENTER_KEY];
+      if (change) setSendWithEnter(change.newValue === true);
+      const fontSizeChange = changes[FONT_SIZE_KEY];
+      if (typeof fontSizeChange?.newValue === "number") {
+        setFontSize(fontSizeChange.newValue);
+      }
+    };
+    chrome.storage.local.onChanged.addListener(onChanged);
+    return () => chrome.storage.local.onChanged.removeListener(onChanged);
   }, []);
 
   async function send(): Promise<void> {
@@ -60,7 +81,7 @@ export default function App() {
         setText((currentText) => currentText || outgoingText);
         return;
       }
-      setStatus("送信しました");
+      setStatus("");
     } catch (error) {
       setStatus(errorMessage(error));
       setText((currentText) => currentText || outgoingText);
@@ -70,14 +91,12 @@ export default function App() {
     }
   }
 
-  function onSubmit(event: FormEvent): void {
-    event.preventDefault();
-    void send();
-  }
-
   function onKeyDown(event: KeyboardEvent<HTMLTextAreaElement>): void {
     if (event.nativeEvent.isComposing) return;
-    if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+    const shouldSend = sendWithEnter
+      ? event.key === "Enter" && !event.shiftKey
+      : event.key === "Enter" && (event.ctrlKey || event.metaKey);
+    if (shouldSend) {
       event.preventDefault();
       void send();
     }
@@ -85,37 +104,25 @@ export default function App() {
 
   return (
     <main>
-      <header>
-        <span className="live-dot" aria-hidden="true" />
-        <div>
-          <p className="eyebrow">送信先</p>
-          <p className="title" title={target?.title}>
-            {target?.title ?? "YouTube Live"}
-          </p>
-        </div>
-      </header>
-      <form onSubmit={onSubmit}>
-        <label htmlFor="message">チャットメッセージ</label>
+      <div>
         <textarea
           id="message"
+          aria-label="チャットメッセージ"
+          style={{ fontSize: `${fontSize}px` }}
           ref={inputRef}
           value={text}
           onChange={(event) => setText(event.target.value)}
           onKeyDown={onKeyDown}
           placeholder="メッセージを入力"
-          rows={5}
+          rows={3}
           disabled={!target}
         />
-        <div className="footer">
+        {status && (
           <p className="status" role="status">
             {status}
           </p>
-          <button type="submit" disabled={!target || sending || !text.trim()}>
-            {sending ? "送信中" : "送信"}
-          </button>
-        </div>
-        <p className="hint">Ctrl / ⌘ + Enter で送信</p>
-      </form>
+        )}
+      </div>
     </main>
   );
 }

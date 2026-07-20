@@ -3,7 +3,7 @@ import { defineManifest } from "@crxjs/vite-plugin";
 export default defineManifest({
   manifest_version: 3,
   name: "YouTube Live Chat Input",
-  description: "YouTube Live のチャットを専用ウィンドウから送信します。",
+  description: "YouTube Live のページ内入力パネルからチャットを送信します。",
   version: "1.0.0",
   minimum_chrome_version: "102",
   action: {
@@ -13,9 +13,14 @@ export default defineManifest({
     service_worker: "src/background.ts",
     type: "module",
   },
-  permissions: ["scripting", "tabs", "webNavigation"],
+  permissions: ["scripting", "storage", "tabs", "webNavigation"],
   host_permissions: ["https://www.youtube.com/*"],
   content_scripts: [
+    {
+      matches: ["https://www.youtube.com/watch*"],
+      js: ["src/content/overlay.ts"],
+      run_at: "document_idle",
+    },
     {
       matches: [
         "https://www.youtube.com/live_chat*",
@@ -24,6 +29,12 @@ export default defineManifest({
       js: ["src/content/chat.ts"],
       all_frames: true,
       run_at: "document_idle",
+    },
+  ],
+  web_accessible_resources: [
+    {
+      resources: ["src/window/index.html"],
+      matches: ["https://www.youtube.com/*"],
     },
   ],
 });

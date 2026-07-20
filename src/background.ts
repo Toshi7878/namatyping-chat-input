@@ -13,17 +13,15 @@ chrome.action.onClicked.addListener(async (tab) => {
     return;
   }
 
-  const url = chrome.runtime.getURL(
-    `src/window/index.html?tabId=${encodeURIComponent(tab.id)}`,
-  );
-
-  await chrome.windows.create({
-    url,
-    type: "popup",
-    width: 440,
-    height: 360,
-    focused: true,
-  });
+  try {
+    await chrome.tabs.sendMessage(
+      tab.id,
+      { type: "TOGGLE_CHAT_OVERLAY", tabId: tab.id } satisfies RuntimeMessage,
+      { frameId: 0 },
+    );
+  } catch {
+    await setBadgeError("RELOAD");
+  }
 });
 
 chrome.runtime.onMessage.addListener(

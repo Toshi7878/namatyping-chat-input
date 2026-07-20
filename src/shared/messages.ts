@@ -12,4 +12,5 @@ export type ChatResponse = { ok: true } | { ok: false; error: string };
 export type RuntimeMessage =
   | { type: "GET_TARGET"; tabId: number }
   | { type: "SEND_CHAT"; tabId: number; text: string }
-  | { type: "CHAT_SEND"; text: string };
+  | { type: "CHAT_SEND"; text: string }
+  | { type: "TOGGLE_CHAT_OVERLAY"; tabId: number };
