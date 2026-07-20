@@ -3,12 +3,23 @@ import type {
   RuntimeMessage,
   TargetInfo,
   TargetResponse,
+  TwitchAuthResponse,
 } from "./shared/messages";
+import {
+  authenticateTwitch,
+  isTwitchAuthenticated,
+  sendTwitchChat,
+} from "./twitch";
 
 const YOUTUBE_LIVE_URL = /^https:\/\/(?:www\.)?youtube\.com\/watch\?/;
+const TWITCH_CHANNEL_URL = /^https:\/\/(?:www\.)?twitch\.tv\/([^/?#]+)/;
 
 chrome.action.onClicked.addListener(async (tab) => {
-  if (tab.id === undefined || !tab.url || !YOUTUBE_LIVE_URL.test(tab.url)) {
+  if (
+    tab.id === undefined ||
+    !tab.url ||
+    (!YOUTUBE_LIVE_URL.test(tab.url) && !TWITCH_CHANNEL_URL.test(tab.url))
+  ) {
     await setBadgeError("LIVE");
     return;
   }
@@ -28,7 +39,9 @@ chrome.runtime.onMessage.addListener(
   (
     message: RuntimeMessage,
     _sender,
-    sendResponse: (response: TargetResponse | ChatResponse) => void,
+    sendResponse: (
+      response: TargetResponse | ChatResponse | TwitchAuthResponse,
+    ) => void,
   ) => {
     if (message.type === "GET_TARGET") {
       getTarget(message.tabId)
@@ -48,23 +61,66 @@ chrome.runtime.onMessage.addListener(
       return true;
     }
 
+    if (message.type === "GET_TWITCH_AUTH_STATUS") {
+      isTwitchAuthenticated()
+        .then((authenticated) => sendResponse({ ok: true, authenticated }))
+        .catch((error: unknown) => {
+          sendResponse({
+            ok: false,
+            authenticated: false,
+            error: errorMessage(error),
+          });
+        });
+      return true;
+    }
+
+    if (message.type === "AUTHENTICATE_TWITCH") {
+      authenticateTwitch()
+        .then(() => sendResponse({ ok: true, authenticated: true }))
+        .catch((error: unknown) => {
+          sendResponse({
+            ok: false,
+            authenticated: false,
+            error: errorMessage(error),
+          });
+        });
+      return true;
+    }
+
     return false;
   },
 );
 
 async function getTarget(tabId: number): Promise<TargetInfo> {
   const tab = await chrome.tabs.get(tabId);
-  if (!tab.url || !YOUTUBE_LIVE_URL.test(tab.url)) {
-    throw new Error("対象タブは YouTube の視聴ページではありません。");
+  if (tab.url && YOUTUBE_LIVE_URL.test(tab.url)) {
+    return {
+      title: tab.title ?? "YouTube Live",
+      url: tab.url,
+      platform: "youtube",
+    };
   }
-  return { title: tab.title ?? "YouTube Live", url: tab.url };
+  if (tab.url && TWITCH_CHANNEL_URL.test(tab.url)) {
+    return {
+      title: tab.title ?? "Twitch",
+      url: tab.url,
+      platform: "twitch",
+    };
+  }
+  throw new Error("対象タブは対応している配信ページではありません。");
 }
 
 async function sendChat(tabId: number, text: string): Promise<ChatResponse> {
   const trimmed = text.trim();
   if (!trimmed) return { ok: false, error: "メッセージを入力してください。" };
 
-  await getTarget(tabId);
+  const target = await getTarget(tabId);
+  if (target.platform === "twitch") {
+    const channel = new URL(target.url).pathname.split("/").filter(Boolean)[0];
+    if (!channel)
+      return { ok: false, error: "Twitchチャンネルを特定できません。" };
+    return sendTwitchChat(channel, trimmed);
+  }
   const frames = (await chrome.webNavigation.getAllFrames({ tabId })) ?? [];
   const chatFrame = frames.find(({ url }) => {
     try {

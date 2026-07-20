@@ -1,4 +1,4 @@
-import type { RuntimeMessage } from "../shared/messages";
+import type { RuntimeMessage, TwitchAuthResponse } from "../shared/messages";
 
 const HOST_ID = "custom-yt-chat-input-overlay";
 const SEND_WITH_ENTER_KEY = "sendWithEnter";
@@ -84,6 +84,17 @@ async function showOverlay(tabId: number): Promise<void> {
     .counter-button:hover { background: #3f3f3f; color: #fff; }
     .counter-button:disabled { color: #555; cursor: default; }
     .font-size { width: 20px; text-align: center; }
+    .auth-button {
+      height: 20px;
+      border: 0;
+      border-radius: 4px;
+      background: #9147ff;
+      padding: 0 7px;
+      color: #fff;
+      font: 10px/1 system-ui, sans-serif;
+      cursor: pointer;
+    }
+    .auth-button:disabled { background: #444; color: #aaa; cursor: default; }
     .switch-label {
       display: flex;
       align-items: center;
@@ -216,12 +227,51 @@ async function showOverlay(tabId: number): Promise<void> {
   updateFontSize(fontSize);
   fontCounter.append(decrease, fontSizeText, increase);
 
+  const authButton = document.createElement("button");
+  authButton.type = "button";
+  authButton.className = "auth-button";
+  authButton.textContent = "確認中…";
+  authButton.disabled = true;
+  if (
+    location.hostname === "www.twitch.tv" ||
+    location.hostname === "twitch.tv"
+  ) {
+    const updateAuthButton = (authenticated: boolean) => {
+      authButton.textContent = authenticated
+        ? "認証済"
+        : "使用するにはTwitch認証してください";
+      authButton.disabled = authenticated;
+    };
+    chrome.runtime
+      .sendMessage({ type: "GET_TWITCH_AUTH_STATUS" } satisfies RuntimeMessage)
+      .then((response: TwitchAuthResponse) =>
+        updateAuthButton(response.ok && response.authenticated),
+      )
+      .catch(() => updateAuthButton(false));
+    authButton.addEventListener("click", async () => {
+      authButton.textContent = "認証中…";
+      authButton.disabled = true;
+      try {
+        const response: TwitchAuthResponse = await chrome.runtime.sendMessage({
+          type: "AUTHENTICATE_TWITCH",
+        } satisfies RuntimeMessage);
+        updateAuthButton(response.ok && response.authenticated);
+        if (!response.ok) authButton.title = response.error;
+      } catch (error) {
+        updateAuthButton(false);
+        authButton.title =
+          error instanceof Error ? error.message : String(error);
+      }
+    });
+  }
+
   const close = document.createElement("button");
   close.type = "button";
   close.className = "close";
   close.setAttribute("aria-label", "閉じる");
   close.textContent = "×";
   close.addEventListener("click", () => host.remove());
+  if (location.hostname.endsWith("twitch.tv")) controls.append(authButton);
   controls.append(fontCounter, switchLabel, close);
   bar.append(title, controls);
 

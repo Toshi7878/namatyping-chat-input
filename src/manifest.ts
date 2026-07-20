@@ -2,22 +2,31 @@ import { defineManifest } from "@crxjs/vite-plugin";
 
 export default defineManifest({
   manifest_version: 3,
-  name: "YouTube Live Chat Input",
-  description: "YouTube Live のページ内入力パネルからチャットを送信します。",
+  name: "namaTyping – Live Chat Input",
+  description: "YouTube・Twitchのページ内入力パネルからチャットを送信します。",
   version: "1.0.0",
   minimum_chrome_version: "102",
+  icons: {
+    128: "icons/nama-key-128.png",
+  },
   action: {
     default_title: "チャット入力を開く",
+    default_icon: "icons/nama-key-128.png",
   },
   background: {
     service_worker: "src/background.ts",
     type: "module",
   },
   permissions: ["scripting", "storage", "tabs", "webNavigation"],
-  host_permissions: ["https://www.youtube.com/*"],
+  host_permissions: [
+    "https://www.youtube.com/*",
+    "https://www.twitch.tv/*",
+    "https://id.twitch.tv/*",
+    "https://api.twitch.tv/*",
+  ],
   content_scripts: [
     {
-      matches: ["https://www.youtube.com/watch*"],
+      matches: ["https://www.youtube.com/watch*", "https://www.twitch.tv/*"],
       js: ["src/content/overlay.ts"],
       run_at: "document_idle",
     },
@@ -34,7 +43,7 @@ export default defineManifest({
   web_accessible_resources: [
     {
       resources: ["src/window/index.html"],
-      matches: ["https://www.youtube.com/*"],
+      matches: ["https://www.youtube.com/*", "https://www.twitch.tv/*"],
     },
   ],
 });
