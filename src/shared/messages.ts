@@ -20,5 +20,8 @@ export type RuntimeMessage =
   | { type: "CHAT_SEND"; text: string }
   | { type: "TOGGLE_CHAT_OVERLAY"; tabId: number }
   | { type: "CLOSE_CHAT_OVERLAY" }
+  | { type: "UPDATE_TEXT_COUNT"; tabId: number; count: number; limit: number }
+  | { type: "TEXT_COUNT_UPDATED"; count: number; limit: number }
   | { type: "GET_TWITCH_AUTH_STATUS" }
-  | { type: "AUTHENTICATE_TWITCH" };
+  | { type: "AUTHENTICATE_TWITCH" }
+  | { type: "DISCONNECT_TWITCH" };

@@ -7,6 +7,7 @@ import type {
 } from "./shared/messages";
 import {
   authenticateTwitch,
+  disconnectTwitch,
   isTwitchAuthenticated,
   sendTwitchChat,
 } from "./twitch";
@@ -20,7 +21,14 @@ chrome.action.onClicked.addListener(async (tab) => {
     !tab.url ||
     (!YOUTUBE_LIVE_URL.test(tab.url) && !TWITCH_CHANNEL_URL.test(tab.url))
   ) {
-    await setBadgeError("LIVE");
+    if (tab.id !== undefined) {
+      await showError(
+        tab.id,
+        "YouTube LiveまたはTwitchの配信ページで使用してください。",
+      );
+    } else {
+      await setBadgeError("!");
+    }
     return;
   }
 
@@ -56,7 +64,10 @@ chrome.action.onClicked.addListener(async (tab) => {
       { frameId: 0 },
     );
   } catch {
-    await setBadgeError("RELOAD");
+    await showError(
+      tab.id,
+      "入力パネルを表示できません。ページを再読み込みしてから、もう一度お試しください。",
+    );
   }
 });
 
@@ -79,7 +90,10 @@ chrome.runtime.onMessage.addListener(
 
     if (message.type === "SEND_CHAT") {
       sendChat(message.tabId, message.text)
-        .then(sendResponse)
+        .then(async (response) => {
+          if (!response.ok) await showError(message.tabId, response.error);
+          sendResponse(response);
+        })
         .catch((error: unknown) => {
           sendResponse({ ok: false, error: errorMessage(error) });
         });
@@ -112,6 +126,34 @@ chrome.runtime.onMessage.addListener(
       return true;
     }
 
+    if (message.type === "DISCONNECT_TWITCH") {
+      disconnectTwitch()
+        .then(() => sendResponse({ ok: true, authenticated: false }))
+        .catch((error: unknown) => {
+          sendResponse({
+            ok: false,
+            authenticated: false,
+            error: errorMessage(error),
+          });
+        });
+      return true;
+    }
+
+    if (message.type === "UPDATE_TEXT_COUNT") {
+      chrome.tabs
+        .sendMessage(
+          message.tabId,
+          {
+            type: "TEXT_COUNT_UPDATED",
+            count: message.count,
+            limit: message.limit,
+          } satisfies RuntimeMessage,
+          { frameId: 0 },
+        )
+        .catch(() => undefined);
+      return false;
+    }
+
     return false;
   },
 );
@@ -136,16 +178,25 @@ async function getTarget(tabId: number): Promise<TargetInfo> {
 }
 
 async function sendChat(tabId: number, text: string): Promise<ChatResponse> {
+  const target = await getTarget(tabId);
+  const characterLimit = target.platform === "twitch" ? 500 : 200;
+  if (Array.from(text).length > characterLimit) {
+    return {
+      ok: false,
+      error: `文字数上限（${characterLimit}文字）を超えています。`,
+    };
+  }
+
   const trimmed = text.trim();
   if (!trimmed) return { ok: false, error: "メッセージを入力してください。" };
 
-  const target = await getTarget(tabId);
   if (target.platform === "twitch") {
     const channel = new URL(target.url).pathname.split("/").filter(Boolean)[0];
     if (!channel)
       return { ok: false, error: "Twitchチャンネルを特定できません。" };
     return sendTwitchChat(channel, trimmed);
   }
+  const youtubeText = trimmed.replace(/\r\n|\r|\n/g, " ");
   const frames = (await chrome.webNavigation.getAllFrames({ tabId })) ?? [];
   const chatFrame = frames.find(({ url }) => {
     try {
@@ -174,7 +225,7 @@ async function sendChat(tabId: number, text: string): Promise<ChatResponse> {
       target: { tabId, frameIds: [chatFrame.frameId] },
       world: "MAIN",
       func: sendViaInnertube,
-      args: [trimmed],
+      args: [youtubeText],
     });
     apiResponse = apiResult[0]?.result as ChatResponse | undefined;
   } catch (error) {
@@ -188,7 +239,7 @@ async function sendChat(tabId: number, text: string): Promise<ChatResponse> {
   try {
     const domResponse: ChatResponse = await chrome.tabs.sendMessage(
       tabId,
-      { type: "CHAT_SEND", text: trimmed } satisfies RuntimeMessage,
+      { type: "CHAT_SEND", text: youtubeText } satisfies RuntimeMessage,
       { frameId: chatFrame.frameId },
     );
     if (domResponse.ok) return domResponse;
@@ -348,6 +399,83 @@ async function setBadgeError(text: string): Promise<void> {
   await chrome.action.setBadgeBackgroundColor({ color: "#cc0000" });
   await chrome.action.setBadgeText({ text });
   setTimeout(() => void chrome.action.setBadgeText({ text: "" }), 2500);
+}
+
+async function showError(tabId: number, message: string): Promise<void> {
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId, frameIds: [0] },
+      func: showToastInPage,
+      args: [message],
+    });
+  } catch {
+    await setBadgeError("!");
+  }
+}
+
+function showToastInPage(message: string): void {
+  const id = "nikotai-chat-error-toast";
+  document.getElementById(id)?.remove();
+
+  const host = document.createElement("div");
+  host.id = id;
+  const shadow = host.attachShadow({ mode: "closed" });
+  const style = document.createElement("style");
+  style.textContent = `
+    .toast {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      z-index: 2147483647;
+      display: flex;
+      max-width: min(420px, calc(100vw - 32px));
+      align-items: flex-start;
+      gap: 12px;
+      border: 1px solid #ff6b6b;
+      border-radius: 10px;
+      background: #211717;
+      box-shadow: 0 10px 36px rgb(0 0 0 / 45%);
+      padding: 12px 12px 12px 14px;
+      color: #fff;
+      font: 13px/1.5 system-ui, sans-serif;
+    }
+    .message { overflow-wrap: anywhere; }
+    button {
+      flex: 0 0 auto;
+      border: 0;
+      background: transparent;
+      padding: 0;
+      color: #aaa;
+      font: 20px/1 system-ui, sans-serif;
+      cursor: pointer;
+    }
+    button:hover { color: #fff; }
+    @media (prefers-color-scheme: light) {
+      .toast {
+        border-color: #d93025;
+        background: #fff4f2;
+        box-shadow: 0 10px 36px rgb(0 0 0 / 22%);
+        color: #202124;
+      }
+      button { color: #666; }
+      button:hover { color: #111; }
+    }
+  `;
+  const toast = document.createElement("div");
+  toast.className = "toast";
+  toast.setAttribute("role", "alert");
+  const text = document.createElement("span");
+  text.className = "message";
+  text.textContent = message;
+  const close = document.createElement("button");
+  close.type = "button";
+  close.setAttribute("aria-label", "閉じる");
+  close.textContent = "×";
+  close.addEventListener("click", () => host.remove());
+  toast.append(text, close);
+  shadow.append(style, toast);
+  document.documentElement.append(host);
+  setTimeout(() => host.remove(), 6000);
 }
 
 function errorMessage(error: unknown): string {

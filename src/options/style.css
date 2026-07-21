@@ -1,4 +1,5 @@
 :root {
+  color-scheme: dark light;
   color: #f1f1f1;
   background: #181818;
   font-family: Roboto, "Noto Sans JP", system-ui, sans-serif;
@@ -16,6 +17,36 @@ main {
 h1 {
   margin: 0 0 16px;
   font-size: 18px;
+}
+h2 {
+  margin: 0 0 10px;
+  font-size: 14px;
+}
+
+section {
+  margin-top: 16px;
+}
+
+section button {
+  border: 0;
+  border-radius: 6px;
+  background: #9147ff;
+  padding: 8px 12px;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+section button:disabled {
+  background: #444;
+  color: #888;
+  cursor: default;
+}
+
+.note {
+  margin: 8px 0 0;
+  color: #aaa;
+  font-size: 11px;
 }
 
 fieldset {
@@ -68,4 +99,23 @@ small,
 #status {
   height: 16px;
   margin: 10px 0 0;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color: #0f0f0f;
+    background: #fff;
+  }
+  fieldset {
+    border-color: #ccc;
+  }
+  label:hover {
+    background: #f2f2f2;
+  }
+  legend,
+  small,
+  .note,
+  #status {
+    color: #606060;
+  }
 }

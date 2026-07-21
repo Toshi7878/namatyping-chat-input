@@ -5,10 +5,38 @@ const SEND_WITH_ENTER_KEY = "sendWithEnter";
 const FONT_SIZE_KEY = "fontSize";
 const MIN_FONT_SIZE = 12;
 const MAX_FONT_SIZE = 32;
+let characterCounter: HTMLSpanElement | null = null;
+let twitchAuthButton: HTMLButtonElement | null = null;
+
+chrome.storage.local.onChanged.addListener((changes) => {
+  if (changes.twitchAuth && twitchAuthButton) {
+    const authenticated = Boolean(changes.twitchAuth.newValue);
+    twitchAuthButton.hidden = authenticated;
+    if (!authenticated) {
+      twitchAuthButton.textContent = "使用するにはTwitch認証してください";
+      twitchAuthButton.disabled = false;
+    }
+  }
+});
 
 chrome.runtime.onMessage.addListener((message: RuntimeMessage) => {
   if (message.type === "CLOSE_CHAT_OVERLAY") {
     document.getElementById(HOST_ID)?.remove();
+    characterCounter = null;
+    return false;
+  }
+  if (message.type === "TEXT_COUNT_UPDATED") {
+    if (characterCounter) {
+      characterCounter.textContent = `${message.count} / ${message.limit}`;
+      characterCounter.classList.toggle(
+        "near-limit",
+        message.count <= message.limit && message.limit - message.count <= 10,
+      );
+      characterCounter.classList.toggle(
+        "over-limit",
+        message.count > message.limit,
+      );
+    }
     return false;
   }
   if (message.type !== "TOGGLE_CHAT_OVERLAY") return false;
@@ -88,6 +116,15 @@ async function showOverlay(tabId: number): Promise<void> {
     .counter-button:hover { background: #3f3f3f; color: #fff; }
     .counter-button:disabled { color: #555; cursor: default; }
     .font-size { width: 20px; text-align: center; }
+    .character-counter {
+      min-width: 48px;
+      color: #aaa;
+      font: 10px/1 system-ui, sans-serif;
+      text-align: right;
+      white-space: nowrap;
+    }
+    .character-counter.near-limit { color: #ffd54f; font-weight: 700; }
+    .character-counter.over-limit { color: #ff6b6b; font-weight: 700; }
     .auth-button {
       height: 20px;
       border: 0;
@@ -162,17 +199,42 @@ async function showOverlay(tabId: number): Promise<void> {
       border-bottom: 2px solid #777;
       content: "";
     }
+    @media (prefers-color-scheme: light) {
+      .panel {
+        border-color: #bbb;
+        background: #fff;
+        box-shadow: 0 12px 48px rgb(0 0 0 / 22%);
+      }
+      .bar {
+        background: #f2f2f2;
+        color: #111;
+      }
+      .font-counter,
+      .character-counter,
+      .switch-label {
+        color: #606060;
+      }
+      .counter-button { color: #555; }
+      .counter-button:hover,
+      .close:hover { background: #ddd; color: #111; }
+      .counter-button:disabled { color: #bbb; }
+      .switch { background: #aaa; }
+      .close { color: #666; }
+      .resize-handle::after { border-color: #777; }
+      .character-counter.near-limit { color: #b26a00; }
+      .character-counter.over-limit { color: #d93025; }
+    }
   `;
 
   const panel = document.createElement("section");
   panel.className = "panel";
-  panel.setAttribute("aria-label", "YouTube Live Chat Input");
+  panel.setAttribute("aria-label", "ニコタイチャット");
 
   const bar = document.createElement("div");
   bar.className = "bar";
   const title = document.createElement("span");
   title.className = "drag-handle";
-  title.textContent = "Live Chat Input";
+  title.textContent = "ニコタイチャット";
 
   const controls = document.createElement("div");
   controls.className = "controls";
@@ -231,7 +293,14 @@ async function showOverlay(tabId: number): Promise<void> {
   updateFontSize(fontSize);
   fontCounter.append(decrease, fontSizeText, increase);
 
+  characterCounter = document.createElement("span");
+  characterCounter.className = "character-counter";
+  characterCounter.textContent = location.hostname.endsWith("twitch.tv")
+    ? "0 / 500"
+    : "0 / 200";
+
   const authButton = document.createElement("button");
+  twitchAuthButton = authButton;
   authButton.type = "button";
   authButton.className = "auth-button";
   authButton.textContent = "確認中…";
@@ -241,10 +310,13 @@ async function showOverlay(tabId: number): Promise<void> {
     location.hostname === "twitch.tv"
   ) {
     const updateAuthButton = (authenticated: boolean) => {
-      authButton.textContent = authenticated
-        ? "認証済"
-        : "使用するにはTwitch認証してください";
-      authButton.disabled = authenticated;
+      if (authenticated) {
+        authButton.hidden = true;
+        return;
+      }
+      authButton.hidden = false;
+      authButton.textContent = "使用するにはTwitch認証してください";
+      authButton.disabled = false;
     };
     chrome.runtime
       .sendMessage({ type: "GET_TWITCH_AUTH_STATUS" } satisfies RuntimeMessage)
@@ -276,7 +348,7 @@ async function showOverlay(tabId: number): Promise<void> {
   close.textContent = "×";
   close.addEventListener("click", () => host.remove());
   if (location.hostname.endsWith("twitch.tv")) controls.append(authButton);
-  controls.append(fontCounter, switchLabel, close);
+  controls.append(characterCounter, fontCounter, switchLabel, close);
   bar.append(title, controls);
 
   const frame = document.createElement("iframe");

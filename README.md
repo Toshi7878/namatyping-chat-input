@@ -1,4 +1,4 @@
-# YouTube Live Chat Input
+# ニコタイチャット【YouTube|Twitch】
 
 YouTube Live の視聴ページで拡張機能アイコンを押すと、チャット送信用パネルをページ内に表示する Chrome 拡張機能です。
 

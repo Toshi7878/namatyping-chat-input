@@ -75,6 +75,25 @@ export async function authenticateTwitch(): Promise<void> {
   await getToken();
 }
 
+export async function disconnectTwitch(): Promise<void> {
+  const stored = (await chrome.storage.local.get(TOKEN_KEY))[TOKEN_KEY] as
+    | StoredAuth
+    | undefined;
+  if (stored?.accessToken) {
+    await fetch("https://id.twitch.tv/oauth2/revoke", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_id: CLIENT_ID,
+        token: stored.accessToken,
+      }),
+    }).catch(() => undefined);
+    await chrome.storage.local.remove(TOKEN_KEY);
+    return;
+  }
+  await chrome.storage.local.remove(TOKEN_KEY);
+}
+
 async function getToken(): Promise<TokenInfo> {
   const stored = (await chrome.storage.local.get(TOKEN_KEY))[TOKEN_KEY] as
     | StoredAuth

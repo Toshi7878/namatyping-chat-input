@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>namaTyping 設定</title>
+    <title>ニコタイチャット 設定</title>
     <link rel="stylesheet" href="./style.css" />
   </head>
   <body>
@@ -26,6 +26,11 @@
           </span>
         </label>
       </fieldset>
+      <section>
+        <h2>Twitch連携</h2>
+        <button id="disconnectTwitch" type="button">Twitch連携を解除</button>
+        <p class="note">保存されたTwitch認証を削除し、Twitch側のアクセストークンを無効化します。</p>
+      </section>
       <p id="status" role="status"></p>
     </main>
     <script type="module" src="./main.ts"></script>

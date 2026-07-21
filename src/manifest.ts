@@ -2,7 +2,7 @@ import { defineManifest } from "@crxjs/vite-plugin";
 
 export default defineManifest({
   manifest_version: 3,
-  name: "namaTyping – Live Chat Input",
+  name: "ニコタイチャット【YouTube|Twitch】",
   description: "YouTube・Twitchのページ内入力パネルからチャットを送信します。",
   version: "1.0.0",
   minimum_chrome_version: "102",

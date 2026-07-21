@@ -1,4 +1,5 @@
 :root {
+  color-scheme: dark light;
   color: #f1f1f1;
   background: #0f0f0f;
   font-family: Roboto, "Noto Sans JP", system-ui, sans-serif;
@@ -67,6 +68,35 @@ textarea:disabled {
   padding: 7px 10px;
   color: #aaa;
   font-size: 11px;
+}
+.twitch-auth-button {
+  height: 24px;
+  border: 0;
+  border-radius: 5px;
+  background: #9147ff;
+  padding: 0 8px;
+  color: #fff;
+  font-size: 10px;
+  cursor: pointer;
+}
+.twitch-auth-button:disabled {
+  background: #444;
+  color: #aaa;
+  cursor: default;
+}
+.character-counter {
+  min-width: 52px;
+  color: #aaa;
+  text-align: right;
+  white-space: nowrap;
+}
+.character-counter.near-limit {
+  color: #ffd54f;
+  font-weight: 700;
+}
+.character-counter.over-limit {
+  color: #ff6b6b;
+  font-weight: 700;
 }
 .font-counter,
 .send-switch {
@@ -142,4 +172,44 @@ textarea:disabled {
   font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color: #0f0f0f;
+    background: #fff;
+  }
+  textarea {
+    border-color: #bbb;
+    background: #fff;
+    color: #111;
+  }
+  textarea::placeholder {
+    color: #777;
+  }
+  .popup-settings,
+  .character-counter,
+  .status {
+    color: #606060;
+  }
+  .font-counter button {
+    background: #e5e5e5;
+    color: #111;
+  }
+  .font-counter button:disabled {
+    color: #aaa;
+  }
+  .switch-visual {
+    background: #aaa;
+  }
+  .twitch-auth-button:disabled {
+    background: #ddd;
+    color: #777;
+  }
+  .character-counter.near-limit {
+    color: #b26a00;
+  }
+  .character-counter.over-limit {
+    color: #d93025;
+  }
 }

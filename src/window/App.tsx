@@ -3,6 +3,7 @@ import type {
   ChatResponse,
   TargetInfo,
   TargetResponse,
+  TwitchAuthResponse,
 } from "../shared/messages";
 
 const searchParams = new URLSearchParams(location.search);
@@ -18,6 +19,10 @@ export default function App() {
   const [sending, setSending] = useState(false);
   const [sendWithEnter, setSendWithEnter] = useState(false);
   const [fontSize, setFontSize] = useState(18);
+  const [twitchAuthenticated, setTwitchAuthenticated] = useState<
+    boolean | null
+  >(null);
+  const [authenticating, setAuthenticating] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -40,6 +45,29 @@ export default function App() {
       .catch((error: unknown) => setStatus(errorMessage(error)));
   }, []);
 
+  const characterLimit = target?.platform === "twitch" ? 500 : 200;
+  const characterCount = Array.from(text).length;
+
+  useEffect(() => {
+    if (isPopup || !target) return;
+    void chrome.runtime.sendMessage({
+      type: "UPDATE_TEXT_COUNT",
+      tabId,
+      count: characterCount,
+      limit: characterLimit,
+    });
+  }, [characterCount, characterLimit, target]);
+
+  useEffect(() => {
+    if (!isPopup || target?.platform !== "twitch") return;
+    chrome.runtime
+      .sendMessage({ type: "GET_TWITCH_AUTH_STATUS" })
+      .then((response: TwitchAuthResponse) => {
+        setTwitchAuthenticated(response.ok && response.authenticated);
+      })
+      .catch(() => setTwitchAuthenticated(false));
+  }, [target]);
+
   useEffect(() => {
     chrome.storage.local
       .get([SEND_WITH_ENTER_KEY, FONT_SIZE_KEY])
@@ -58,6 +86,9 @@ export default function App() {
       if (typeof fontSizeChange?.newValue === "number") {
         setFontSize(fontSizeChange.newValue);
       }
+      if (changes.twitchAuth) {
+        setTwitchAuthenticated(Boolean(changes.twitchAuth.newValue));
+      }
     };
     chrome.storage.local.onChanged.addListener(onChanged);
     return () => chrome.storage.local.onChanged.removeListener(onChanged);
@@ -66,6 +97,11 @@ export default function App() {
   async function send(): Promise<void> {
     const outgoingText = text.trim();
     if (sending || !target || !outgoingText) return;
+    if (characterCount > characterLimit) {
+      setStatus(`文字数上限（${characterLimit}文字）を超えています。`);
+      inputRef.current?.focus();
+      return;
+    }
 
     setSending(true);
     setText("");
@@ -84,6 +120,7 @@ export default function App() {
         return;
       }
       setStatus("");
+      if (target.platform === "twitch") setTwitchAuthenticated(true);
     } catch (error) {
       setStatus(errorMessage(error));
       setText((currentText) => currentText || outgoingText);
@@ -115,6 +152,26 @@ export default function App() {
     inputRef.current?.focus();
   }
 
+  async function authenticateTwitchAccount(): Promise<void> {
+    setAuthenticating(true);
+    try {
+      const response: TwitchAuthResponse = await chrome.runtime.sendMessage({
+        type: "AUTHENTICATE_TWITCH",
+      });
+      if (response.ok && response.authenticated) {
+        setTwitchAuthenticated(true);
+        setStatus("");
+      } else if (!response.ok) {
+        setStatus(response.error);
+      }
+    } catch (error) {
+      setStatus(errorMessage(error));
+    } finally {
+      setAuthenticating(false);
+      inputRef.current?.focus();
+    }
+  }
+
   return (
     <main className={isPopup ? "popup-view" : "overlay-view"}>
       <div>
@@ -132,6 +189,31 @@ export default function App() {
         />
         {isPopup && (
           <div className="popup-settings">
+            {target?.platform === "twitch" && twitchAuthenticated !== true && (
+              <button
+                type="button"
+                className="twitch-auth-button"
+                disabled={authenticating || twitchAuthenticated === null}
+                onClick={() => void authenticateTwitchAccount()}
+              >
+                {authenticating
+                  ? "認証中…"
+                  : twitchAuthenticated === null
+                    ? "確認中…"
+                    : "使用するにはTwitch認証してください"}
+              </button>
+            )}
+            <span
+              className={`character-counter ${
+                characterCount > characterLimit
+                  ? "over-limit"
+                  : characterLimit - characterCount <= 10
+                    ? "near-limit"
+                    : ""
+              }`}
+            >
+              {characterCount} / {characterLimit}
+            </span>
             <fieldset className="font-counter" aria-label="文字サイズ">
               <button
                 type="button"

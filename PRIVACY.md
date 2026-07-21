@@ -1,8 +1,8 @@
-# namaTyping – Live Chat Input プライバシーポリシー
+# ニコタイチャット【YouTube|Twitch】プライバシーポリシー
 
 最終更新日: 2026年7月21日
 
-namaTyping – Live Chat Input（以下「本拡張機能」）は、YouTube LiveおよびTwitchのチャットへ、利用者が入力して送信を確定したメッセージを送るためのChrome拡張機能です。
+ニコタイチャット【YouTube|Twitch】（以下「本拡張機能」）は、YouTube LiveおよびTwitchのチャットへ、利用者が入力して送信を確定したメッセージを送るためのChrome拡張機能です。
 
 ## 取り扱う情報
 
