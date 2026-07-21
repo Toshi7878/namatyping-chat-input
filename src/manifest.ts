@@ -24,13 +24,19 @@ export default defineManifest({
   permissions: ["scripting", "storage", "tabs", "webNavigation"],
   host_permissions: [
     "https://www.youtube.com/*",
+    "https://studio.youtube.com/*",
     "https://www.twitch.tv/*",
     "https://id.twitch.tv/*",
     "https://api.twitch.tv/*",
   ],
   content_scripts: [
     {
-      matches: ["https://www.youtube.com/watch*", "https://www.twitch.tv/*"],
+      matches: [
+        "https://www.youtube.com/watch*",
+        "https://www.youtube.com/live/*",
+        "https://studio.youtube.com/video/*/livestreaming*",
+        "https://www.twitch.tv/*",
+      ],
       js: ["src/content/overlay.ts"],
       run_at: "document_idle",
     },
@@ -38,6 +44,8 @@ export default defineManifest({
       matches: [
         "https://www.youtube.com/live_chat*",
         "https://www.youtube.com/live_chat_replay*",
+        "https://studio.youtube.com/live_chat*",
+        "https://studio.youtube.com/live_chat_replay*",
       ],
       js: ["src/content/chat.ts"],
       all_frames: true,
@@ -47,7 +55,11 @@ export default defineManifest({
   web_accessible_resources: [
     {
       resources: ["src/window/index.html"],
-      matches: ["https://www.youtube.com/*", "https://www.twitch.tv/*"],
+      matches: [
+        "https://www.youtube.com/*",
+        "https://studio.youtube.com/*",
+        "https://www.twitch.tv/*",
+      ],
     },
   ],
 });

@@ -13,18 +13,30 @@ import {
 } from "./twitch";
 
 const YOUTUBE_LIVE_URL = /^https:\/\/(?:www\.)?youtube\.com\/watch\?/;
+const YOUTUBE_LIVE_PATH_URL =
+  /^https:\/\/(?:www\.)?youtube\.com\/live\/[^/?#]+(?:[/?#]|$)/;
+const YOUTUBE_STUDIO_LIVE_URL =
+  /^https:\/\/studio\.youtube\.com\/video\/[^/?#]+\/livestreaming(?:[/?#]|$)/;
 const TWITCH_CHANNEL_URL = /^https:\/\/(?:www\.)?twitch\.tv\/([^/?#]+)/;
+
+function isYouTubeLiveUrl(url: string): boolean {
+  return (
+    YOUTUBE_LIVE_URL.test(url) ||
+    YOUTUBE_LIVE_PATH_URL.test(url) ||
+    YOUTUBE_STUDIO_LIVE_URL.test(url)
+  );
+}
 
 chrome.action.onClicked.addListener(async (tab) => {
   if (
     tab.id === undefined ||
     !tab.url ||
-    (!YOUTUBE_LIVE_URL.test(tab.url) && !TWITCH_CHANNEL_URL.test(tab.url))
+    (!isYouTubeLiveUrl(tab.url) && !TWITCH_CHANNEL_URL.test(tab.url))
   ) {
     if (tab.id !== undefined) {
       await showError(
         tab.id,
-        "YouTube LiveまたはTwitchの配信ページで使用してください。",
+        "YouTube Liveの視聴ページ、YouTube Studioのライブ配信管理ページ、またはTwitchの配信ページで使用してください。",
       );
     } else {
       await setBadgeError("!");
@@ -160,7 +172,7 @@ chrome.runtime.onMessage.addListener(
 
 async function getTarget(tabId: number): Promise<TargetInfo> {
   const tab = await chrome.tabs.get(tabId);
-  if (tab.url && YOUTUBE_LIVE_URL.test(tab.url)) {
+  if (tab.url && isYouTubeLiveUrl(tab.url)) {
     return {
       title: tab.title ?? "YouTube Live",
       url: tab.url,
@@ -202,16 +214,17 @@ async function sendChat(tabId: number, text: string): Promise<ChatResponse> {
     try {
       const parsed = new URL(url);
       return (
-        parsed.hostname === "www.youtube.com" &&
-        (parsed.pathname === "/live_chat" ||
-          parsed.pathname === "/live_chat_replay")
+        (parsed.hostname === "www.youtube.com" ||
+          parsed.hostname === "studio.youtube.com") &&
+        parsed.pathname.startsWith("/live_chat")
       );
     } catch {
       return false;
     }
   });
 
-  if (!chatFrame) {
+  const isStudio = YOUTUBE_STUDIO_LIVE_URL.test(target.url);
+  if (!chatFrame && !isStudio) {
     return {
       ok: false,
       error:
@@ -222,7 +235,7 @@ async function sendChat(tabId: number, text: string): Promise<ChatResponse> {
   let apiResponse: ChatResponse | undefined;
   try {
     const apiResult = await chrome.scripting.executeScript({
-      target: { tabId, frameIds: [chatFrame.frameId] },
+      target: { tabId, frameIds: [chatFrame?.frameId ?? 0] },
       world: "MAIN",
       func: sendViaInnertube,
       args: [youtubeText],
@@ -235,6 +248,15 @@ async function sendChat(tabId: number, text: string): Promise<ChatResponse> {
     };
   }
   if (apiResponse?.ok) return apiResponse;
+
+  if (!chatFrame) {
+    return {
+      ok: false,
+      error:
+        apiResponse?.error ??
+        "YouTube Studioのチャット送信情報を取得できません。ライブチャット欄を表示してから再試行してください。",
+    };
+  }
 
   try {
     const domResponse: ChatResponse = await chrome.tabs.sendMessage(
