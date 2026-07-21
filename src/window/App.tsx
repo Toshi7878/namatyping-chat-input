@@ -5,7 +5,9 @@ import type {
   TargetResponse,
 } from "../shared/messages";
 
-const tabId = Number(new URLSearchParams(location.search).get("tabId"));
+const searchParams = new URLSearchParams(location.search);
+const tabId = Number(searchParams.get("tabId"));
+const isPopup = searchParams.get("view") === "popup";
 const SEND_WITH_ENTER_KEY = "sendWithEnter";
 const FONT_SIZE_KEY = "fontSize";
 
@@ -102,8 +104,19 @@ export default function App() {
     }
   }
 
+  function changeSendMode(enabled: boolean): void {
+    void chrome.storage.local.set({ [SEND_WITH_ENTER_KEY]: enabled });
+    inputRef.current?.focus();
+  }
+
+  function changeFontSize(delta: number): void {
+    const nextSize = Math.min(Math.max(fontSize + delta, 12), 32);
+    void chrome.storage.local.set({ [FONT_SIZE_KEY]: nextSize });
+    inputRef.current?.focus();
+  }
+
   return (
-    <main>
+    <main className={isPopup ? "popup-view" : "overlay-view"}>
       <div>
         <textarea
           id="message"
@@ -117,6 +130,40 @@ export default function App() {
           rows={3}
           disabled={!target}
         />
+        {isPopup && (
+          <div className="popup-settings">
+            <fieldset className="font-counter" aria-label="文字サイズ">
+              <button
+                type="button"
+                aria-label="文字を小さくする"
+                disabled={fontSize <= 12}
+                onClick={() => changeFontSize(-1)}
+              >
+                −
+              </button>
+              <span>{fontSize}</span>
+              <button
+                type="button"
+                aria-label="文字を大きくする"
+                disabled={fontSize >= 32}
+                onClick={() => changeFontSize(1)}
+              >
+                +
+              </button>
+            </fieldset>
+            <label className="send-switch">
+              <span>{sendWithEnter ? "Enter" : "Ctrl+Enter"}</span>
+              <input
+                type="checkbox"
+                role="switch"
+                aria-checked={sendWithEnter}
+                checked={sendWithEnter}
+                onChange={(event) => changeSendMode(event.target.checked)}
+              />
+              <span className="switch-visual" aria-hidden="true" />
+            </label>
+          </div>
+        )}
         {status && (
           <p className="status" role="status">
             {status}

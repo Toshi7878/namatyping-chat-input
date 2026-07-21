@@ -24,6 +24,31 @@ chrome.action.onClicked.addListener(async (tab) => {
     return;
   }
 
+  const { displayMode = "overlay" } =
+    await chrome.storage.local.get("displayMode");
+
+  if (displayMode === "popup") {
+    try {
+      await chrome.tabs.sendMessage(
+        tab.id,
+        { type: "CLOSE_CHAT_OVERLAY" } satisfies RuntimeMessage,
+        { frameId: 0 },
+      );
+    } catch {
+      // The overlay content script may not be ready yet; the popup can still open.
+    }
+    await chrome.windows.create({
+      url: chrome.runtime.getURL(
+        `src/window/index.html?tabId=${encodeURIComponent(tab.id)}&view=popup`,
+      ),
+      type: "popup",
+      width: 580,
+      height: 270,
+      focused: true,
+    });
+    return;
+  }
+
   try {
     await chrome.tabs.sendMessage(
       tab.id,

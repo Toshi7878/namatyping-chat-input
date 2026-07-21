@@ -1,0 +1,71 @@
+:root {
+  color: #f1f1f1;
+  background: #181818;
+  font-family: Roboto, "Noto Sans JP", system-ui, sans-serif;
+}
+
+body {
+  min-width: 360px;
+  margin: 0;
+}
+
+main {
+  padding: 20px;
+}
+
+h1 {
+  margin: 0 0 16px;
+  font-size: 18px;
+}
+
+fieldset {
+  display: grid;
+  gap: 8px;
+  border: 1px solid #444;
+  border-radius: 10px;
+  padding: 12px;
+}
+
+legend {
+  padding: 0 6px;
+  color: #aaa;
+  font-size: 12px;
+}
+
+label {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  border-radius: 8px;
+  padding: 9px;
+  cursor: pointer;
+}
+
+label:hover {
+  background: #282828;
+}
+
+input {
+  margin-top: 3px;
+  accent-color: #3ea6ff;
+}
+
+span {
+  display: grid;
+  gap: 4px;
+}
+
+strong {
+  font-size: 14px;
+}
+
+small,
+#status {
+  color: #aaa;
+  font-size: 12px;
+}
+
+#status {
+  height: 16px;
+  margin: 10px 0 0;
+}

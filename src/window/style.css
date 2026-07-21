@@ -42,6 +42,12 @@ textarea {
   font-weight: 600;
   line-height: 1.5;
 }
+.overlay-view textarea,
+.popup-view textarea {
+  height: auto;
+  min-height: calc(4.5em + 26px);
+  flex: 1;
+}
 textarea::placeholder {
   color: #888;
   font-weight: 400;
@@ -52,6 +58,81 @@ textarea:focus {
 }
 textarea:disabled {
   opacity: 0.55;
+}
+.popup-settings {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+  padding: 7px 10px;
+  color: #aaa;
+  font-size: 11px;
+}
+.font-counter,
+.send-switch {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.font-counter {
+  margin: 0;
+  border: 0;
+  padding: 0;
+}
+.font-counter button {
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 4px;
+  background: #333;
+  color: #fff;
+  font-size: 16px;
+  cursor: pointer;
+}
+.font-counter button:disabled {
+  color: #666;
+  cursor: default;
+}
+.font-counter span {
+  width: 20px;
+  text-align: center;
+}
+.send-switch {
+  cursor: pointer;
+}
+.send-switch input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+.switch-visual {
+  position: relative;
+  width: 30px;
+  height: 16px;
+  border-radius: 999px;
+  background: #555;
+}
+.switch-visual::after {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  content: "";
+  transition: transform 120ms ease;
+}
+.send-switch input:checked + .switch-visual {
+  background: #3ea6ff;
+}
+.send-switch input:checked + .switch-visual::after {
+  transform: translateX(14px);
+}
+.send-switch input:focus-visible + .switch-visual {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
 }
 .status {
   min-width: 0;

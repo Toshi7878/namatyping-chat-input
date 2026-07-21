@@ -7,7 +7,7 @@ export default defineConfig({
   plugins: [react(), crx({ manifest })],
   build: {
     rollupOptions: {
-      input: ["src/window/index.html"],
+      input: ["src/window/index.html", "src/options/index.html"],
     },
   },
 });

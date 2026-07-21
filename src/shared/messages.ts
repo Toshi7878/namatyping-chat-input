@@ -19,5 +19,6 @@ export type RuntimeMessage =
   | { type: "SEND_CHAT"; tabId: number; text: string }
   | { type: "CHAT_SEND"; text: string }
   | { type: "TOGGLE_CHAT_OVERLAY"; tabId: number }
+  | { type: "CLOSE_CHAT_OVERLAY" }
   | { type: "GET_TWITCH_AUTH_STATUS" }
   | { type: "AUTHENTICATE_TWITCH" };

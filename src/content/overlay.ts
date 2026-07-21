@@ -7,6 +7,10 @@ const MIN_FONT_SIZE = 12;
 const MAX_FONT_SIZE = 32;
 
 chrome.runtime.onMessage.addListener((message: RuntimeMessage) => {
+  if (message.type === "CLOSE_CHAT_OVERLAY") {
+    document.getElementById(HOST_ID)?.remove();
+    return false;
+  }
   if (message.type !== "TOGGLE_CHAT_OVERLAY") return false;
 
   const existing = document.getElementById(HOST_ID);
@@ -277,7 +281,7 @@ async function showOverlay(tabId: number): Promise<void> {
 
   const frame = document.createElement("iframe");
   frame.src = chrome.runtime.getURL(
-    `src/window/index.html?tabId=${encodeURIComponent(tabId)}`,
+    `src/window/index.html?tabId=${encodeURIComponent(tabId)}&view=overlay`,
   );
   frame.title = "チャット入力";
 

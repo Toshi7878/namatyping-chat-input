@@ -17,6 +17,10 @@ export default defineManifest({
     service_worker: "src/background.ts",
     type: "module",
   },
+  options_ui: {
+    page: "src/options/index.html",
+    open_in_tab: false,
+  },
   permissions: ["scripting", "storage", "tabs", "webNavigation"],
   host_permissions: [
     "https://www.youtube.com/*",
