@@ -27,6 +27,90 @@ function isYouTubeLiveUrl(url: string): boolean {
   );
 }
 
+function isSupportedUrl(url?: string): boolean {
+  return Boolean(
+    url && (isYouTubeLiveUrl(url) || TWITCH_CHANNEL_URL.test(url)),
+  );
+}
+
+let fadedIconPromise: Promise<ImageData> | undefined;
+
+function getFadedIcon(): Promise<ImageData> {
+  fadedIconPromise ??= fetch(chrome.runtime.getURL("icons/nama-key-128.png"))
+    .then((response) => response.blob())
+    .then(createImageBitmap)
+    .then((bitmap) => {
+      const canvas = new OffscreenCanvas(128, 128);
+      const context = canvas.getContext("2d");
+      if (!context) throw new Error("アイコンを描画できません。");
+      context.globalAlpha = 0.35;
+      context.drawImage(bitmap, 0, 0, 128, 128);
+      bitmap.close();
+      return context.getImageData(0, 0, 128, 128);
+    });
+  return fadedIconPromise;
+}
+
+async function updateActionState(tabId: number, url?: string): Promise<void> {
+  if (isSupportedUrl(url)) {
+    await chrome.action.setIcon({
+      tabId,
+      path: "icons/nama-key-128.png",
+    });
+    await chrome.action.enable(tabId);
+  } else {
+    try {
+      await chrome.action.setIcon({ tabId, imageData: await getFadedIcon() });
+    } catch {
+      // Chrome's standard disabled appearance is still applied as a fallback.
+    }
+    await chrome.action.disable(tabId);
+  }
+}
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.url || changeInfo.status === "complete") {
+    void updateActionState(tabId, changeInfo.url ?? tab.url);
+  }
+});
+
+chrome.webNavigation.onHistoryStateUpdated.addListener((details) => {
+  if (details.frameId === 0) {
+    void updateActionState(details.tabId, details.url);
+  }
+});
+
+chrome.tabs.onActivated.addListener(({ tabId }) => {
+  void chrome.tabs
+    .get(tabId)
+    .then((tab) => updateActionState(tabId, tab.url))
+    .catch(() => undefined);
+});
+
+chrome.runtime.onInstalled.addListener(() => {
+  void chrome.tabs
+    .query({})
+    .then((tabs) =>
+      Promise.all(
+        tabs.flatMap((tab) =>
+          tab.id === undefined ? [] : [updateActionState(tab.id, tab.url)],
+        ),
+      ),
+    );
+});
+
+chrome.runtime.onStartup.addListener(() => {
+  void chrome.tabs
+    .query({})
+    .then((tabs) =>
+      Promise.all(
+        tabs.flatMap((tab) =>
+          tab.id === undefined ? [] : [updateActionState(tab.id, tab.url)],
+        ),
+      ),
+    );
+});
+
 chrome.action.onClicked.addListener(async (tab) => {
   if (
     tab.id === undefined ||
@@ -70,11 +154,11 @@ chrome.action.onClicked.addListener(async (tab) => {
   }
 
   try {
-    await chrome.tabs.sendMessage(
-      tab.id,
-      { type: "TOGGLE_CHAT_OVERLAY", tabId: tab.id } satisfies RuntimeMessage,
-      { frameId: 0 },
-    );
+    const message = {
+      type: "TOGGLE_CHAT_OVERLAY",
+      tabId: tab.id,
+    } satisfies RuntimeMessage;
+    await sendOverlayMessage(tab.id, message);
   } catch {
     await showError(
       tab.id,
@@ -82,6 +166,25 @@ chrome.action.onClicked.addListener(async (tab) => {
     );
   }
 });
+
+async function sendOverlayMessage(
+  tabId: number,
+  message: RuntimeMessage,
+): Promise<void> {
+  try {
+    await chrome.tabs.sendMessage(tabId, message, { frameId: 0 });
+    return;
+  } catch {
+    const overlayScript =
+      chrome.runtime.getManifest().content_scripts?.[0]?.js?.[0];
+    if (!overlayScript) throw new Error("入力パネルを読み込めません。");
+    await chrome.scripting.executeScript({
+      target: { tabId, frameIds: [0] },
+      files: [overlayScript],
+    });
+    await chrome.tabs.sendMessage(tabId, message, { frameId: 0 });
+  }
+}
 
 chrome.runtime.onMessage.addListener(
   (

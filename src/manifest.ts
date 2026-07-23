@@ -32,9 +32,8 @@ export default defineManifest({
   content_scripts: [
     {
       matches: [
-        "https://www.youtube.com/watch*",
-        "https://www.youtube.com/live/*",
-        "https://studio.youtube.com/video/*/livestreaming*",
+        "https://www.youtube.com/*",
+        "https://studio.youtube.com/*",
         "https://www.twitch.tv/*",
       ],
       js: ["src/content/overlay.ts"],
