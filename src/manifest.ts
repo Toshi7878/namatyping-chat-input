@@ -4,7 +4,7 @@ export default defineManifest({
   manifest_version: 3,
   name: "ニコタイチャット【YouTube|Twitch】",
   description: "YouTube・Twitchのページ内入力パネルからチャットを送信します。",
-  version: "1.0.0",
+  version: "1.0.1",
   minimum_chrome_version: "102",
   icons: {
     128: "icons/nama-key-128.png",
