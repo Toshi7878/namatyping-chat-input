@@ -155,7 +155,7 @@ textarea:disabled {
   transition: transform 120ms ease;
 }
 .send-switch input:checked + .switch-visual {
-  background: #3ea6ff;
+  background: #888;
 }
 .send-switch input:checked + .switch-visual::after {
   transform: translateX(14px);

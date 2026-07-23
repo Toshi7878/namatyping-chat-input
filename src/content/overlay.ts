@@ -163,7 +163,7 @@ async function showOverlay(tabId: number): Promise<void> {
       content: "";
       transition: transform 120ms ease;
     }
-    .switch-label input:checked + .switch { background: #3ea6ff; }
+    .switch-label input:checked + .switch { background: #888; }
     .switch-label input:checked + .switch::after { transform: translateX(14px); }
     .switch-label input:focus-visible + .switch { outline: 2px solid #fff; }
     .close {
@@ -248,7 +248,7 @@ async function showOverlay(tabId: number): Promise<void> {
     SEND_WITH_ENTER_KEY,
     FONT_SIZE_KEY,
   ]);
-  switchInput.checked = stored[SEND_WITH_ENTER_KEY] === true;
+  switchInput.checked = stored[SEND_WITH_ENTER_KEY] !== false;
   switchInput.setAttribute("aria-checked", String(switchInput.checked));
   switchText.textContent = switchInput.checked ? "Enter" : "Ctrl+Enter";
   const switchVisual = document.createElement("span");

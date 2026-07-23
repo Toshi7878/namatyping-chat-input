@@ -17,7 +17,7 @@ export default function App() {
   const [text, setText] = useState("");
   const [status, setStatus] = useState("接続中…");
   const [sending, setSending] = useState(false);
-  const [sendWithEnter, setSendWithEnter] = useState(false);
+  const [sendWithEnter, setSendWithEnter] = useState(true);
   const [fontSize, setFontSize] = useState(18);
   const [twitchAuthenticated, setTwitchAuthenticated] = useState<
     boolean | null
@@ -72,7 +72,7 @@ export default function App() {
     chrome.storage.local
       .get([SEND_WITH_ENTER_KEY, FONT_SIZE_KEY])
       .then((stored) => {
-        setSendWithEnter(stored[SEND_WITH_ENTER_KEY] === true);
+        setSendWithEnter(stored[SEND_WITH_ENTER_KEY] !== false);
         const storedFontSize = stored[FONT_SIZE_KEY];
         if (typeof storedFontSize === "number") setFontSize(storedFontSize);
       });

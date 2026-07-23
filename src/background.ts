@@ -27,12 +27,6 @@ function isYouTubeLiveUrl(url: string): boolean {
   );
 }
 
-function isSupportedUrl(url?: string): boolean {
-  return Boolean(
-    url && (isYouTubeLiveUrl(url) || TWITCH_CHANNEL_URL.test(url)),
-  );
-}
-
 let fadedIconPromise: Promise<ImageData> | undefined;
 
 function getFadedIcon(): Promise<ImageData> {
@@ -51,39 +45,109 @@ function getFadedIcon(): Promise<ImageData> {
   return fadedIconPromise;
 }
 
+async function hasYouTubeLiveChat(tabId: number): Promise<boolean> {
+  const frames = (await chrome.webNavigation.getAllFrames({ tabId })) ?? [];
+  return frames.some(({ url }) => {
+    try {
+      const parsed = new URL(url);
+      return (
+        (parsed.hostname === "www.youtube.com" ||
+          parsed.hostname === "studio.youtube.com") &&
+        parsed.pathname === "/live_chat"
+      );
+    } catch {
+      return false;
+    }
+  });
+}
+
+async function enableAction(tabId: number): Promise<void> {
+  await chrome.action.setIcon({
+    tabId,
+    path: "icons/nama-key-128.png",
+  });
+  await chrome.action.enable(tabId);
+}
+
+async function disableAction(tabId: number): Promise<void> {
+  try {
+    await chrome.action.setIcon({ tabId, imageData: await getFadedIcon() });
+  } catch {
+    // Chrome's standard disabled appearance is still applied as a fallback.
+  }
+  await chrome.action.disable(tabId);
+}
+
 async function updateActionState(tabId: number, url?: string): Promise<void> {
-  if (isSupportedUrl(url)) {
+  if (url && TWITCH_CHANNEL_URL.test(url)) {
+    await enableAction(tabId);
+    return;
+  }
+  if (url && isYouTubeLiveUrl(url) && (await hasYouTubeLiveChat(tabId))) {
+    const currentTab = await chrome.tabs.get(tabId);
+    if (currentTab.url && isYouTubeLiveUrl(currentTab.url)) {
+      await enableAction(tabId);
+      return;
+    }
+  }
+  await disableAction(tabId);
+}
+
+function refreshActionAfterNavigation(tabId: number, url: string): void {
+  void disableAction(tabId);
+  setTimeout(() => void updateActionState(tabId, url), 1200);
+}
+
+chrome.webNavigation.onCommitted.addListener((details) => {
+  if (details.frameId === 0) return;
+  try {
+    const parsed = new URL(details.url);
+    if (
+      (parsed.hostname === "www.youtube.com" ||
+        parsed.hostname === "studio.youtube.com") &&
+      parsed.pathname === "/live_chat"
+    ) {
+      void chrome.tabs
+        .get(details.tabId)
+        .then((tab) => updateActionState(details.tabId, tab.url))
+        .catch(() => undefined);
+    }
+  } catch {
+    // Ignore navigation events without a valid URL.
+  }
+});
+
+async function setInitialActionState(
+  tabId: number,
+  url?: string,
+): Promise<void> {
+  if (url && (isYouTubeLiveUrl(url) || TWITCH_CHANNEL_URL.test(url))) {
     await chrome.action.setIcon({
       tabId,
       path: "icons/nama-key-128.png",
     });
-    await chrome.action.enable(tabId);
-  } else {
-    try {
-      await chrome.action.setIcon({ tabId, imageData: await getFadedIcon() });
-    } catch {
-      // Chrome's standard disabled appearance is still applied as a fallback.
-    }
-    await chrome.action.disable(tabId);
   }
+  await updateActionState(tabId, url);
 }
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (changeInfo.url || changeInfo.status === "complete") {
-    void updateActionState(tabId, changeInfo.url ?? tab.url);
+  if (changeInfo.url) {
+    refreshActionAfterNavigation(tabId, changeInfo.url);
+  } else if (changeInfo.status === "complete") {
+    void updateActionState(tabId, tab.url);
   }
 });
 
 chrome.webNavigation.onHistoryStateUpdated.addListener((details) => {
   if (details.frameId === 0) {
-    void updateActionState(details.tabId, details.url);
+    refreshActionAfterNavigation(details.tabId, details.url);
   }
 });
 
 chrome.tabs.onActivated.addListener(({ tabId }) => {
   void chrome.tabs
     .get(tabId)
-    .then((tab) => updateActionState(tabId, tab.url))
+    .then((tab) => setInitialActionState(tabId, tab.url))
     .catch(() => undefined);
 });
 
